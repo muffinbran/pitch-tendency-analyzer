@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import session_router
+from app.routers import session_router
 
 app = FastAPI()
 
@@ -12,7 +12,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(session_router.router)
+app.include_router(session_router)
 
 @app.get("/test")
 def test_endpoint():
