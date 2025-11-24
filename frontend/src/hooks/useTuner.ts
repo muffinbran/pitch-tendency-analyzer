@@ -1,14 +1,6 @@
 import {useEffect, useState} from "react";
-
-/**
- * Interface representing note information, including note name, octave, full note string, and cents deviation.
- */
-interface NoteInfo {
-    note: string;
-    octave: number;
-    noteString: string;
-    cents: number;
-}
+import type {AggregateData, NoteAnalysis} from "../types/api.ts";
+import type {NoteInfo} from "../types/local";
 
 /**
  * Custom hook to access microphone input and determine the pitch (frequency and note).
@@ -19,6 +11,19 @@ interface NoteInfo {
 export function useTuner() {
     const [frequency, setFrequency] = useState<number | null>(null);
     const [note, setNote] = useState<NoteInfo | null>(null);
+    const [runningAggregateData, setRunningAggregateData] = useState<AggregateData>({});
+
+    const calculateFinalAggregates = (): NoteAnalysis[] => {
+        return Object.keys(runningAggregateData).map(noteString => {
+            const {sumCents, count} = runningAggregateData[noteString];
+            const meanCents = count > 0 ? sumCents / count : 0;
+            return {
+                noteString,
+                meanCents,
+                count
+            };
+        });
+    }
 
     useEffect(() => {
         let audioCtx: AudioContext | null = null;
@@ -134,8 +139,22 @@ export function useTuner() {
                 analyser.getFloatTimeDomainData(buffer);
                 const freq = autoCorrelate(buffer, audioCtx!.sampleRate);
                 if (freq) {
+                    const noteInfo = frequencyToNote(freq);
                     setFrequency(freq);
-                    setNote(frequencyToNote(freq));
+                    setNote(noteInfo);
+
+                    // Aggregate only when a valid pitch is detected
+                    setRunningAggregateData(prevData => {
+                        const key = noteInfo.noteString;
+                        const existing = prevData[key] || {sumCents: 0, count: 0};
+                        return {
+                            ...prevData,
+                            [key]: {
+                                sumCents: existing.sumCents + noteInfo.cents,
+                                count: existing.count + 1
+                            }
+                        };
+                    });
                 } else {
                     setFrequency(null);
                     setNote(null);
@@ -154,5 +173,5 @@ export function useTuner() {
         };
     }, []);
 
-    return {frequency, note};
+    return {frequency, note, calculateFinalAggregates};
 }

@@ -1,9 +1,9 @@
-import {Tuner} from "./components/Tuner.tsx";
+import {TunerController} from "./components/TunerController.tsx";
 
 function App() {
     return (
         <div>
-            <Tuner />
+            <TunerController/>
         </div>
     )
 }
