@@ -1,7 +1,10 @@
 from pydantic import BaseModel
 from typing import List
 
-from backend.app.models.note_analysis import NoteAnalysis
+class NoteAnalysis(BaseModel):
+    note_string: str
+    mean_cents: float
+    count: int
 
 class SessionData(BaseModel):
     session_id: str
