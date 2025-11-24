@@ -1,15 +1,14 @@
-import React from "react";
-import { useTuner } from "../hooks/usePitch";
+import type {TunerProps} from "../types/local";
 
-export const Tuner: React.FC = () => {
-    const {frequency, note} = useTuner();
-
+export function Tuner({displayFrequency, displayNote}: TunerProps) {
     return (
-        <div style={{ textAlign: "center", marginTop: "50px" }}>
-            <h1>Tuner</h1>
-            <p>Frequency: {frequency ? frequency.toFixed(2) : "--"} Hz</p>
-            <p>Note: {note?.noteString ?? "--"}</p>
-            <p>{note?.cents ?? "--"}</p>
+        <div>
+            <div style={{textAlign: "center"}}>
+                <h1>Tuner</h1>
+                <p>Frequency: {displayFrequency ? displayFrequency.toFixed(2) : "--"} Hz</p>
+                <p>Note: {displayNote?.noteString ?? "--"}</p>
+                <p>{displayNote?.cents ?? "--"}</p>
+            </div>
         </div>
     );
-};
+}

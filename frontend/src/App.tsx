@@ -3,7 +3,7 @@ import {Tuner} from "./components/Tuner.tsx";
 function App() {
     return (
         <div>
-            <Tuner />
+            <Tuner/>
         </div>
     )
 }
