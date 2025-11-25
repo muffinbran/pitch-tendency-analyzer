@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List
 
+
 class NoteAnalysis(BaseModel):
     note_string: str = Field(alias="noteString")
     mean_cents: float = Field(alias="meanCents")
@@ -8,6 +9,7 @@ class NoteAnalysis(BaseModel):
 
     class Config:
         validate_by_name = True
+
 
 class SessionData(BaseModel):
     session_id: int = Field(alias="sessionId")
