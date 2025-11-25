@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Float, ForeignKey
 from sqlalchemy.orm import relationship
 from .db import Base
 
+
 class DBNoteAnalysis(Base):
     __tablename__ = "note_analyses"
 
@@ -12,6 +13,7 @@ class DBNoteAnalysis(Base):
     count = Column(Integer)
 
     session = relationship("DBSession", back_populates="notes")
+
 
 class DBSession(Base):
     __tablename__ = "sessions"

@@ -17,6 +17,7 @@ app.add_middleware(
 
 app.include_router(session_router)
 
+
 @app.get("/test")
 def test_endpoint():
     return {"message": "Hello from FastAPI!"}
