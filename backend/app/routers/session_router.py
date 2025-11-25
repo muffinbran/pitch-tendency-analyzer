@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
+
 from app.models import SessionData
 from app.db import crud
 from app.db import get_db
@@ -18,6 +19,7 @@ async def create_session(
     :param db: The SQLAlchemy DB session (injected via dependency)
     :return: A success message with the session_id
     """
+    print("Creating session with data:", session_data)
     try:
         crud.create_session_and_notes(db, session_data)
         print(f"Received session data: {session_data} with {len(session_data.note_strings)} unique notes.")

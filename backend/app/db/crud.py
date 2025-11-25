@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 from app.models import SessionData
 from app.db.models import DBSession, DBNoteAnalysis
 
-
 def create_session_and_notes(db: Session, session_data: SessionData):
     """
     Create a new session and associated note analyses in the database.
@@ -18,8 +17,7 @@ def create_session_and_notes(db: Session, session_data: SessionData):
         instrument_id=session_data.instrument_id
     )
     db.add(db_session)
-    db.commit()
-    db.refresh(db_session)
+    db.flush()
 
     for note in session_data.note_strings:
         db_note = DBNoteAnalysis(
@@ -31,4 +29,5 @@ def create_session_and_notes(db: Session, session_data: SessionData):
         db.add(db_note)
 
     db.commit()
+    db.refresh(db_session)
     return db_session

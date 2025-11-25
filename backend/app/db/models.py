@@ -6,7 +6,7 @@ class DBNoteAnalysis(Base):
     __tablename__ = "note_analyses"
 
     id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(String, ForeignKey("sessions.session_id"))
+    session_id = Column(Integer, ForeignKey("sessions.session_id"))
     note_string = Column(String, index=True)
     mean_cents = Column(Float)
     count = Column(Integer)
@@ -16,7 +16,7 @@ class DBNoteAnalysis(Base):
 class DBSession(Base):
     __tablename__ = "sessions"
 
-    session_id = Column(String, primary_key=True, index=True)
+    session_id = Column(Integer, primary_key=True, index=True)
     instrument = Column(String)
     instrument_id = Column(Integer)
     notes = relationship("DBNoteAnalysis", back_populates="session")

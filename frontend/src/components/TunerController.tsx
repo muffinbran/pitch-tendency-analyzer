@@ -2,6 +2,8 @@ import {useTuner} from "../hooks/useTuner.ts";
 import {useState} from "react";
 import {Tuner} from "./Tuner.tsx";
 import {PracticeSession} from "./PracticeSession.tsx";
+import {exportSessionData} from "../services/dataService.ts";
+import type {SessionData} from "../types/api.ts";
 
 export function TunerController() {
     const {frequency, note, calculateFinalAggregates} = useTuner();
@@ -11,7 +13,7 @@ export function TunerController() {
         setIsSessionActive(true);
     };
 
-    const handleStopSession = () => {
+    const handleStopSession = async () => {
         setIsSessionActive(false);
         const finalAggregates = calculateFinalAggregates();
 
@@ -22,20 +24,21 @@ export function TunerController() {
             return;
         }
 
-        const sessionPayload = {
-            sessionId: new Date().toISOString(),
+        const sessionPayload: SessionData = {
+            sessionId: Date.now(),
             instrument: "Clarinet",
             instrumentId: 1,
             noteStrings: finalAggregates
         };
 
         console.log("Attempting to export data:", sessionPayload);
+        await exportSessionData(sessionPayload);
     };
 
     return (
         <div>
             <h1>Pitch Tendency Analyzer</h1>
-            <Tuner displayFrequency={frequency} displayNote={note} />
+            <Tuner displayFrequency={frequency} displayNote={note}/>
             <PracticeSession
                 isActive={isSessionActive}
                 onStart={handleStartSession}
