@@ -5,7 +5,7 @@ from app.models import SessionData
 from app.db import crud
 from app.db import get_db
 
-router = APIRouter(prefix="/api")
+router = APIRouter()
 
 
 @router.post("/sessions", status_code=201)

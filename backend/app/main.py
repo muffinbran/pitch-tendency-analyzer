@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import session_router
+from app.routers import session_router, analysis
 from app.db import Base, engine
 
 Base.metadata.create_all(bind=engine)
@@ -15,7 +15,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(session_router)
+app.include_router(session_router, prefix="/api")
+app.include_router(analysis, prefix="/api")
 
 
 @app.get("/test")
