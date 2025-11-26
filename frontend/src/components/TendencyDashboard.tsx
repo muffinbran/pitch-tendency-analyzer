@@ -1,8 +1,15 @@
 import { useOverallTendencies } from "../hooks/useOverallTendencies";
+import type { TendencyDashboardProps } from "../types/local.ts";
 
-export function TendencyDashboard() {
+export function TendencyDashboard({
+  instrumentId,
+  refreshTrigger,
+}: TendencyDashboardProps) {
   // 1. Consume the data hook
-  const { tendencies, isLoading, error } = useOverallTendencies(1); // TODO: Make instrument ID dynamic
+  const { tendencies, isLoading, error } = useOverallTendencies(
+    instrumentId,
+    refreshTrigger,
+  );
 
   if (isLoading) {
     return <p>Loading overall tendencies...</p>;

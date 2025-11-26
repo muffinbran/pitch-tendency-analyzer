@@ -24,3 +24,11 @@ export interface PracticeSessionProps {
   onStart: () => void;
   onStop: () => void;
 }
+
+/**
+ * Props for the TendencyDashboard component, including instrument ID and refresh trigger.
+ */
+export interface TendencyDashboardProps {
+  instrumentId: number;
+  refreshTrigger: number;
+}

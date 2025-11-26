@@ -6,7 +6,10 @@ import type { NoteSummary } from "../types/api";
  * Custom hook to fetch and manage the overall pitch tendency data.
  * * @returns An object containing the fetched data, loading state, and error state.
  */
-export function useOverallTendencies(instrumentId: number) {
+export function useOverallTendencies(
+  instrumentId: number,
+  refreshTrigger: number,
+) {
   const [tendencies, setTendencies] = useState<NoteSummary[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +35,7 @@ export function useOverallTendencies(instrumentId: number) {
     };
 
     loadData();
-  }, [instrumentId]);
+  }, [instrumentId, refreshTrigger]);
 
   return { tendencies, isLoading, error };
 }
