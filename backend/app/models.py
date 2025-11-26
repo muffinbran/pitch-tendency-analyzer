@@ -19,3 +19,13 @@ class SessionData(BaseModel):
 
     class Config:
         validate_by_name = True
+
+
+class NoteSummary(BaseModel):
+    note_string: str = Field(alias="noteString")
+    instrument_id: int = Field(alias="instrumentId")
+    mean_cents: float = Field(alias="meanCents")
+    total_samples: int = Field(alias="totalSamples")
+
+    class Config:
+        validate_by_name = True

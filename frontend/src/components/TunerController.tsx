@@ -2,6 +2,7 @@ import { useTuner } from "../hooks/useTuner.ts";
 import { useState } from "react";
 import { Tuner } from "./Tuner.tsx";
 import { PracticeSession } from "./PracticeSession.tsx";
+import { TendencyDashboard } from "./TendencyDashboard.tsx";
 import { exportSessionData } from "../services/dataService.ts";
 import type { SessionData } from "../types/api.ts";
 
@@ -9,6 +10,7 @@ export function TunerController() {
   const { frequency, note, calculateFinalAggregates, resetAggregates } =
     useTuner();
   const [isSessionActive, setIsSessionActive] = useState(false);
+  const [dataExportedCount, setDataExportedCount] = useState(0);
 
   const handleStartSession = () => {
     resetAggregates();
@@ -33,6 +35,8 @@ export function TunerController() {
       noteStrings: finalAggregates,
     };
 
+    setDataExportedCount((prevCount) => prevCount + 1);
+
     console.log("Attempting to export data:", sessionPayload);
     await exportSessionData(sessionPayload);
   };
@@ -47,6 +51,10 @@ export function TunerController() {
         onStop={handleStopSession}
       />
       <p>Status: {isSessionActive ? "Recording..." : "Ready"}</p>
+      <TendencyDashboard
+        instrumentId={1} // TODO: Make instrument ID dynamic
+        refreshTrigger={dataExportedCount}
+      />
     </div>
   );
 }

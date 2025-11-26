@@ -32,3 +32,13 @@ export interface RunningAnalysis {
 export interface AggregateData {
   [noteString: string]: RunningAnalysis;
 }
+
+/**
+ * Interface representing a summary of note data for API communication.
+ */
+export interface NoteSummary {
+  noteString: string;
+  instrumentId: number;
+  meanCents: number;
+  totalSamples: number;
+}
