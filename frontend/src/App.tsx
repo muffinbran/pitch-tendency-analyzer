@@ -1,11 +1,11 @@
-import {TunerController} from "./components/TunerController.tsx";
+import { TunerController } from "./components/TunerController.tsx";
 
 function App() {
-    return (
-        <div>
-            <TunerController/>
-        </div>
-    )
+  return (
+    <div>
+      <TunerController />
+    </div>
+  );
 }
 
 export default App;
