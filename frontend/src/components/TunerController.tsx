@@ -7,8 +7,14 @@ import { exportSessionData } from "../services/dataService.ts";
 import type { SessionData } from "../types/api.ts";
 
 export function TunerController() {
-  const { frequency, note, calculateFinalAggregates, resetAggregates } =
-    useTuner();
+  const {
+    frequency,
+    note,
+    lastNote,
+    lastFrequency,
+    calculateFinalAggregates,
+    resetAggregates,
+  } = useTuner();
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [dataExportedCount, setDataExportedCount] = useState(0);
 
@@ -68,12 +74,17 @@ export function TunerController() {
       {/* Center: make tuner expansive and allow it to take most of the width */}
       <div className="flex-1 flex items-center justify-center h-full">
         <div className="w-full h-full flex items-center justify-center">
-          <Tuner displayFrequency={frequency} displayNote={note} />
+          <Tuner
+            displayFrequency={frequency}
+            displayNote={note}
+            lastNote={lastNote}
+            lastFrequency={lastFrequency}
+          />
         </div>
       </div>
 
       {/* Right panel: dashboard only */}
-      <aside className="w-80 space-y-4 h-full overflow-auto flex flex-col justify-start">
+      <aside className="w-80 space-y-4 h-full overflow-auto flex flex-col justify-center">
         <TendencyDashboard
           instrumentId={1}
           refreshTrigger={dataExportedCount}

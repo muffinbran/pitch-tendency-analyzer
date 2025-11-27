@@ -6,19 +6,21 @@ import { STABILITY_THRESHOLD, MIN_SAMPLES_FOR_EXPORT } from "../constants";
 export function useTuner() {
   const [frequency, setFrequency] = useState<number | null>(null);
   const [note, setNote] = useState<NoteInfo | null>(null);
-  const [lastNoteString, setLastNoteString] = useState<string | null>(null);
+  // Keep a full NoteInfo for the last seen note so the UI can display the
+  // last pitch details even when nothing is currently sounding.
+  const [lastNote, setLastNote] = useState<NoteInfo | null>(null);
+  // Keep the most recent detected frequency so components can display it
+  // without recomputing from NoteInfo.
+  const [lastFrequency, setLastFrequency] = useState<number | null>(null);
   const [runningAggregateData, setRunningAggregateData] =
     useState<AggregateData>({});
   const [stabilityCounter, setStabilityCounter] = useState<number>(0);
 
   // Refs to hold the latest values for real-time loop
-  const lastNoteStringRef = useRef<string | null>(lastNoteString);
   const stabilityCounterRef = useRef<number>(stabilityCounter);
   const runningAggregateDataRef = useRef<AggregateData>(runningAggregateData);
+  const lastNoteRef = useRef<NoteInfo | null>(null);
 
-  useEffect(() => {
-    lastNoteStringRef.current = lastNoteString;
-  }, [lastNoteString]);
   useEffect(() => {
     stabilityCounterRef.current = stabilityCounter;
   }, [stabilityCounter]);
@@ -29,9 +31,12 @@ export function useTuner() {
   const resetAggregates = useCallback(() => {
     setFrequency(null);
     setNote(null);
-    setLastNoteString(null);
+    setLastNote(null);
+    setLastFrequency(null);
     setRunningAggregateData({});
     setStabilityCounter(0);
+    // clear the ref too so subsequent detections start fresh
+    lastNoteRef.current = null;
   }, []);
 
   const calculateFinalAggregates = (): NoteAnalysis[] => {
@@ -76,7 +81,15 @@ export function useTuner() {
       const rounded = Math.round(exactSemitone);
       const octave = Math.floor(rounded / 12);
       const noteIndex = ((rounded % 12) + 12) % 12;
-      const cents = Math.round((exactSemitone - rounded) * 100);
+      // produce cents with one decimal of precision (e.g. 12.3)
+      // Use numeric rounding to avoid any string parsing issues and ensure
+      // consistent numeric results across runtimes.
+      const rawCents = (exactSemitone - rounded) * 100; // e.g. 12.345
+      // Add a tiny epsilon to avoid floating-point edge cases where a value
+      // like 12.299999999 becomes 12.2 or where 12.3000000001 becomes 12.3
+      const EPS = 1e-6;
+      const cents = Math.round((rawCents + EPS) * 10) / 10; // one decimal, e.g. 12.3
+
       return {
         note: notes[noteIndex],
         octave,
@@ -185,15 +198,16 @@ export function useTuner() {
           const noteInfo = frequencyToNote(freq);
           setFrequency(freq);
           setNote(noteInfo);
+          setLastFrequency(freq);
+          setLastNote(noteInfo);
 
-          // Use refs to avoid stale closure problems
-          if (noteInfo.noteString === lastNoteStringRef.current) {
+          if (noteInfo.noteString === lastNoteRef.current?.noteString) {
             const newCount = stabilityCounterRef.current + 1;
             setStabilityCounter(newCount);
             stabilityCounterRef.current = newCount;
           } else {
-            setLastNoteString(noteInfo.noteString);
-            lastNoteStringRef.current = noteInfo.noteString;
+            // update the ref immediately so subsequent frames see the new baseline
+            lastNoteRef.current = noteInfo;
             setStabilityCounter(1);
             stabilityCounterRef.current = 1;
           }
@@ -219,8 +233,8 @@ export function useTuner() {
         } else {
           setFrequency(null);
           setNote(null);
-          setLastNoteString(null);
-          lastNoteStringRef.current = null;
+          // don't clear `lastNote` here; we want the UI to be able to show the most
+          // recently seen note even while silence is present. Stability counter does reset.
           setStabilityCounter(0);
           stabilityCounterRef.current = 0;
         }
@@ -238,5 +252,12 @@ export function useTuner() {
     };
   }, []);
 
-  return { frequency, note, calculateFinalAggregates, resetAggregates };
+  return {
+    frequency,
+    note,
+    lastNote,
+    lastFrequency,
+    calculateFinalAggregates,
+    resetAggregates,
+  };
 }

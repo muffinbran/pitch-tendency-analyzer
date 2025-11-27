@@ -1,9 +1,32 @@
 import type { TunerProps } from "../types/local";
 import { IN_TUNE_THRESHOLD } from "../constants.ts";
 
-export function Tuner({ displayFrequency, displayNote }: TunerProps) {
-  const cents = displayNote?.cents;
+export function Tuner({
+  displayFrequency,
+  displayNote,
+  lastNote,
+  lastFrequency,
+}: TunerProps) {
+  // Prefer currently sounding note for visual state, but fall back to lastNote
+  // for textual/frequency display. If neither exists, use C0 default.
+  const fallback: Required<
+    Pick<
+      import("../types/local").NoteInfo,
+      "note" | "octave" | "noteString" | "cents"
+    >
+  > = {
+    note: "C",
+    octave: 0,
+    noteString: "C0",
+    cents: 0,
+  };
+  const textNote = displayNote ?? lastNote ?? fallback;
+  const cents = displayNote?.cents ?? textNote.cents;
   const threshold = IN_TUNE_THRESHOLD; // cents threshold for "in tune"
+
+  // Prefer the live displayFrequency, then the lastFrequency captured by the hook,
+  // and only if neither is available compute an approximate frequency from the NoteInfo.
+  const displayFreqForText = displayFrequency ?? lastFrequency ?? 16.35; // C0 frequency fallback
 
   // softer, less piercing colors (base hex colors)
   const softGreen = "#34d399"; // green-400
@@ -13,127 +36,99 @@ export function Tuner({ displayFrequency, displayNote }: TunerProps) {
   const subtleOutline = "#e5e7eb"; // gray-200-ish for outline when idle
   const idleLabelGray = "#9ca3af"; // gray-400 for text when idle
 
+  // `hasNote` (for ring/visuals) should reflect whether something is currently sounding
   const hasNote = !!displayNote;
 
   // Visual geometry (units are SVG viewBox units: 0..100)
-  // Scaled up for larger visual tuner
-  // Make the visual inner circle smaller so the ring starts further outside it
-  // Reduce the inner circle slightly and increase the gaps so the ring visibly sits further away
-  const INNER_R = 12; // slightly smaller inner circle radius
-  const BASE_GAP = 14; // larger baseline gap so the ring starts noticeably outside the circle
-  const MAX_ADDITIONAL_GAP = 18; // more room for the ring to expand outward when off-tune
-  const MAX_VISIBLE_CENTS = 50; // cents mapped to the full additional gap
-  const STROKE_WIDTH = 4; // thinner ring stroke for a more delicate appearance
+  const INNER_R = 28; // Inner circle radius
+  const BASE_GAP = 12; // Default ring gap
+  const MAX_ADDITIONAL_GAP = 24; // Max extra gap for ring when very off-tune
+  const MAX_VISIBLE_CENTS = 50;
+  // Increase base active stroke so the ring starts thicker when active
+  const STROKE_WIDTH = 6; // was 4
+
+  // Base stroke sizes: raise idle widths so the starting outline is thicker
+  const IDLE_RING_WIDTH = 1.6; // was 0.8
+  const IDLE_INNER_WIDTH = 1.2; // was 0.8
 
   // compute excess beyond the in-tune threshold
-  const excess =
-    typeof cents === "number" ? Math.max(0, Math.abs(cents) - threshold) : 0;
+  const excess = Math.max(0, Math.abs(cents) - threshold);
   const frac = Math.min(excess / MAX_VISIBLE_CENTS, 1);
 
-  // compute ring radius: base (inner + BASE_GAP) plus extra proportional to excess
-  const ringR = INNER_R + BASE_GAP + frac * MAX_ADDITIONAL_GAP;
+  // Map tuning error (frac 0..1) to a stroke width for the ring: make it grow non-linearly
+  // when off-tune, so small deviations are subtle and large deviations produce a thicker ring.
+  // Increase sensitivity and max growth so the ring thickness responds more strongly to cents error.
+  const MAX_RING_INCREASE = 14; // increase max growth (was 10)
+  const RING_SENSITIVITY_EXP = 1.5; // slight adjustment to response curve
+  const activeRingStrokeWidth =
+    STROKE_WIDTH + Math.pow(frac, RING_SENSITIVITY_EXP) * MAX_RING_INCREASE;
 
-  // Ensure ringR stays within reasonable SVG bounds
-  const R = Math.max(10, Math.min(ringR, 48));
+  // Inner circle stroke: increase base and growth so it ends thicker at max error
+  const ACTIVE_INNER_BASE = 2.0; // was 1.4
+  const innerGrowth = 3.0; // was 2.0
+
+  // Final stroke widths depend on whether a note exists; idle keeps thin outlines
+  const ringStrokeWidth = hasNote
+    ? Math.max(IDLE_RING_WIDTH, activeRingStrokeWidth)
+    : IDLE_RING_WIDTH;
+  const innerStrokeWidth = hasNote
+    ? Math.max(IDLE_INNER_WIDTH, ACTIVE_INNER_BASE + frac * innerGrowth)
+    : IDLE_INNER_WIDTH;
+
+  // compute ring radius: base (inner + BASE_GAP) plus extra proportional to excess
+  // Use a non-linear mapping so small frac values (tiny errors) produce much less movement.
+  const RADIUS_SENSITIVITY_EXP = 3.0; // larger exponent compresses tiny errors further
+  const ringR =
+    INNER_R +
+    BASE_GAP +
+    Math.pow(frac, RADIUS_SENSITIVITY_EXP) * MAX_ADDITIONAL_GAP;
+
+  // Ensure ringR stays within reasonable SVG bounds (clamped to 46 units max for padding)
+  const R = Math.max(10, Math.min(ringR, 46)); // Use 46 instead of 48
+  const arcRadius = Math.max(6, R);
+
+  // Idle (no-note) ring radius — smallest visible ring when not tuning
+  const idleRadius = Math.max(6, Math.min(INNER_R + BASE_GAP, 46));
 
   // default: ring invisible (transparent) when there's no detected note or when in-tune
   let topColor: string = "transparent";
   let bottomColor: string = "transparent";
 
-  if (hasNote && typeof cents === "number") {
+  if (hasNote) {
     if (Math.abs(cents) <= threshold) {
-      // In tune -> hide the ring entirely (no visible halves)
-      topColor = bottomColor = "transparent";
+      // In-tune: show a subtle green ring at the default radius
+      topColor = bottomColor = softGreen;
     } else if (cents > 0) {
-      // Sharp -> only top half visible (soft purple)
       topColor = softPurple;
       bottomColor = "transparent";
     } else {
-      // Flat -> only bottom half visible (soft orange)
       bottomColor = softOrange;
       topColor = "transparent";
     }
   } else if (hasNote) {
-    // We have a note object but no numeric cents yet; show a subtle ring at baseline radius
     topColor = bottomColor = subtleOutline;
   }
 
-  // intensity mapping for color saturation/opacity (0..1)
-  // minOpacity: faint when barely out; maxOpacity: full when strongly out
-  const MIN_OPACITY = 0.28;
-  const MAX_OPACITY = 1;
-  const intensity = frac; // 0..1 based on excess
-
-  // helper to convert 6-digit or 3-digit hex to rgba string
-  const hexToRgba = (hex: string, alpha: number) => {
-    if (!hex || hex === "transparent") return "transparent";
-    let h = hex.replace("#", "");
-    if (h.length === 3)
-      h = h
-        .split("")
-        .map((c) => c + c)
-        .join("");
-    const r = parseInt(h.substring(0, 2), 16);
-    const g = parseInt(h.substring(2, 4), 16);
-    const b = parseInt(h.substring(4, 6), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  };
-
-  // Determine opacities for top/bottom ring halves
-  let topOpacity = 0;
-  let bottomOpacity = 0;
-  if (!hasNote) {
-    topOpacity = bottomOpacity = 0;
-  } else if (hasNote && typeof cents !== "number") {
-    // subtle hint opacity when note exists but cents unknown
-    topOpacity = bottomOpacity = 0.32;
-  } else if (hasNote && typeof cents === "number") {
-    if (Math.abs(cents) <= threshold) {
-      topOpacity = bottomOpacity = 0; // ring hidden in-tune
-    } else {
-      const mapped = MIN_OPACITY + (MAX_OPACITY - MIN_OPACITY) * intensity;
-      if (cents > 0) {
-        topOpacity = mapped;
-        bottomOpacity = 0;
-      } else {
-        bottomOpacity = mapped;
-        topOpacity = 0;
-      }
-    }
-  }
-
-  // Choose a single color for the inner circle; we'll set its rgba fill with variable opacity when off
+  // Determine fill color for the inner circle (solid colors only)
   let circleFill = "transparent";
-  if (hasNote && typeof cents === "number") {
+  if (hasNote) {
     if (Math.abs(cents) <= threshold) {
-      // in tune: solid green (clear feedback)
-      circleFill = hexToRgba(softGreen, 0.95);
+      // in tune: solid green
+      circleFill = softGreen;
     } else if (cents > 0) {
-      // sharp: purple, intensity-based opacity
-      const a = MIN_OPACITY + (MAX_OPACITY - MIN_OPACITY) * intensity;
-      circleFill = hexToRgba(softPurple, a);
+      // sharp: purple
+      circleFill = softPurple;
     } else {
-      // flat: orange, intensity-based opacity
-      const a = MIN_OPACITY + (MAX_OPACITY - MIN_OPACITY) * intensity;
-      circleFill = hexToRgba(softOrange, a);
+      // flat: orange
+      circleFill = softOrange;
     }
   } else if (hasNote) {
-    // have a note but no cents yet: neutral subtle fill
-    circleFill = hexToRgba(neutralGray, 0.55);
+    // have a note but no cents yet: neutral fill
+    circleFill = neutralGray;
   }
 
-  // Note label shows note + octave when available (e.g., A#4)
-  const noteLabel = displayNote
-    ? `${displayNote.note}${displayNote.octave}`
-    : "--";
-  const centsLabel =
-    typeof cents === "number"
-      ? `${cents >= 0 ? "+" : ""}${cents.toFixed(2)} cents`
-      : "--";
-
-  // Use fixed base colors for the pitch label (no intensity/opacity modulation)
   let labelColor = idleLabelGray;
-  if (hasNote && typeof cents === "number") {
+  if (hasNote) {
     if (Math.abs(cents) <= threshold) {
       labelColor = softGreen; // in-tune
     } else if (cents > 0) {
@@ -142,112 +137,137 @@ export function Tuner({ displayFrequency, displayNote }: TunerProps) {
       labelColor = softOrange; // flat
     }
   } else if (hasNote) {
-    // Note detected but cents not available yet -> keep muted label
     labelColor = idleLabelGray;
   }
 
   // SVG arc start/end coordinates based on computed radius R
-  const leftX = Math.max(2, 50 - R);
-  const rightX = Math.min(98, 50 + R);
-  const arcRadius = Math.max(6, R);
+  const leftX = Math.max(4, 50 - arcRadius);
+  const rightX = Math.min(96, 50 + arcRadius);
 
   return (
-    // Fill the available vertical space and center content vertically/horizontally
-    <div className="flex h-full items-center justify-center overflow-visible">
+    <div className="flex h-full items-center justify-center overflow-visible w-full">
       <div className="text-center w-full h-full flex flex-col items-center justify-center">
-        <h1 className="text-3xl font-semibold mb-6">Tuner</h1>
-
-        {/* Ring + circle: SVG provides two semicircles for coloring halves; ring radius varies with cents */}
+        {/* Ring + circle Container */}
         <div
-          className="w-full max-h-full mx-auto relative flex items-center justify-center mb-3"
+          className="relative mx-auto mb-6 w-4/5 max-w-sm aspect-square"
           style={{ minHeight: 0 }}
         >
+          {/* SVG: The visual element that scales */}
           <svg
             viewBox="0 0 100 100"
-            className="w-auto h-full max-h-[76vh]"
+            className="absolute inset-0 w-full h-full"
             role="img"
             aria-label="Tuning ring"
           >
-            {/* Top semicircle (left -> right across top) - radius is dynamic */}
+            {/* Idle ring outline when there's no detected note */}
+            {!hasNote && (
+              <circle
+                cx="50"
+                cy="50"
+                r={idleRadius}
+                fill="none"
+                stroke={subtleOutline}
+                strokeWidth={ringStrokeWidth}
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
+
+            {/* Inner circle: fill when we have a note; otherwise show a very thin subtle outline */}
+            {hasNote ? (
+              <circle
+                cx="50"
+                cy="50"
+                r={INNER_R}
+                fill={circleFill}
+                stroke="rgba(0,0,0,0.06)"
+                strokeWidth={innerStrokeWidth}
+                style={{ filter: "drop-shadow(0px 0px 5px rgba(0,0,0,0.5))" }}
+                vectorEffect="non-scaling-stroke"
+              />
+            ) : (
+              <circle
+                cx="50"
+                cy="50"
+                r={INNER_R}
+                fill="transparent"
+                stroke={subtleOutline}
+                strokeWidth={innerStrokeWidth}
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
+
+            {/* Top semicircle (left -> right across top) - radius is dynamic (arcRadius) */}
             <path
               d={`M ${leftX} 50 A ${arcRadius} ${arcRadius} 0 0 1 ${rightX} 50`}
               fill="none"
               stroke={topColor}
-              strokeWidth={STROKE_WIDTH}
+              strokeWidth={ringStrokeWidth}
               strokeLinecap="round"
-              strokeOpacity={topOpacity}
+              vectorEffect="non-scaling-stroke"
             />
 
-            {/* Bottom semicircle (right -> left across bottom) - radius is dynamic */}
+            {/* Bottom semicircle (right -> left across bottom) - radius is dynamic (arcRadius) */}
             <path
               d={`M ${rightX} 50 A ${arcRadius} ${arcRadius} 0 0 1 ${leftX} 50`}
               fill="none"
               stroke={bottomColor}
-              strokeWidth={STROKE_WIDTH}
+              strokeWidth={ringStrokeWidth}
               strokeLinecap="round"
-              strokeOpacity={bottomOpacity}
-            />
-
-            <circle
-              cx="50"
-              cy="50"
-              r={arcRadius}
-              fill="none"
-              stroke="rgba(0,0,0,0)"
+              vectorEffect="non-scaling-stroke"
             />
           </svg>
+        </div>
 
-          {/* Inner circle: filled with state color when we have a note; otherwise a subtle outline */}
-          {hasNote ? (
+        {/* Three-column summary: Note (+sharp sign top-right, octave bottom-right), Cents deviation, Frequency */}
+        <div className="w-full max-w-lg mx-auto mb-2 flex gap-16 items-center justify-center">
+          {/* Column 1: Note with sharp/natural sign (top-right) and octave (bottom-right) */}
+          <div className="text-left">
             <div
-              className="absolute z-10 flex items-center justify-center"
-              role="img"
-              aria-label="Tuning circle"
-              style={{
-                width: "40%",
-                height: "40%",
-                borderRadius: "9999px",
-                backgroundColor: circleFill,
-              }}
+              className="text-7xl font-bold relative inline-block" // Added 'relative inline-block'
+              style={{ color: labelColor }}
             >
-              {/* Show sharp/flat symbol when we have numeric cents and are outside the in-tune threshold */}
-              {typeof cents === "number" && Math.abs(cents) > threshold ? (
-                <span
-                  className="text-7xl font-extrabold leading-none"
-                  style={{ color: labelColor }}
-                >
-                  {cents > 0 ? "♯" : "♭"}
-                </span>
-              ) : null}
+              {textNote ? textNote.note[0] : "--"}
+
+              {/* sharp/natural sign at top-right of the note letter */}
+              <div
+                className="absolute top-0 right-0 text-2xl translate-x-5"
+                style={{ color: labelColor }}
+              >
+                {textNote
+                  ? textNote.note.includes("#")
+                    ? "♯"
+                    : textNote.note.toLowerCase().includes("b")
+                      ? "♭"
+                      : "♮"
+                  : null}
+              </div>
+
+              {/* octave at bottom-right of the note letter */}
+              <div
+                className="absolute bottom-0 right-0 text-2xl translate-x-5"
+                style={{ color: labelColor }}
+              >
+                {textNote ? textNote.octave : "--"}
+              </div>
             </div>
-          ) : (
-            <div
-              className="absolute z-10 flex items-center justify-center"
-              role="img"
-              aria-label="Tuning circle idle"
-              style={{
-                width: "40%",
-                height: "40%",
-                borderRadius: "9999px",
-                backgroundColor: "transparent",
-                border: `2px solid ${subtleOutline}`,
-              }}
-            />
-          )}
-        </div>
-
-        {/* Note and cents displayed outside the ring; note colored to match the circle for clarity */}
-        <div className="mb-1">
-          <div className="text-3xl font-semibold" style={{ color: labelColor }}>
-            {noteLabel}
           </div>
-          <div className="text-lg text-gray-600">{centsLabel}</div>
-        </div>
 
-        {/* Frequency remains outside */}
-        <p className="text-base text-gray-700">
-          Frequency: {displayFrequency ? displayFrequency.toFixed(2) : "--"} Hz
-        </p>
+          {/* Column 2: Cents deviation */}
+          <div className="text-right" style={{ width: "12ch" }}>
+            <div className="text-4xl font-light" style={{ color: labelColor }}>
+              {`${cents >= 0 ? "+" : ""}${cents.toFixed(1)}`}
+            </div>
+          </div>
+
+          {/* Column 3: Frequency */}
+          <div className="text-right" style={{ width: "12ch" }}>
+            <div className="text-xl font-thin text-gray-200">
+              {displayFreqForText
+                ? displayFreqForText.toFixed(2) + " Hz"
+                : "--"}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
