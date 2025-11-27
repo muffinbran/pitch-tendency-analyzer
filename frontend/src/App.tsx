@@ -2,7 +2,7 @@ import { TunerController } from "./components/TunerController.tsx";
 
 function App() {
   return (
-    <div>
+    <div className="h-screen w-full">
       <TunerController />
     </div>
   );

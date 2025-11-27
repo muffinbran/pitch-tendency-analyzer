@@ -7,7 +7,6 @@ export function PracticeSession({
 }: PracticeSessionProps) {
   return (
     <div>
-      <h3>Session Controls</h3>
       {isActive ? (
         <button onClick={onStop}>Stop Practice Session</button>
       ) : (
