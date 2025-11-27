@@ -14,6 +14,8 @@ export interface NoteInfo {
 export interface TunerProps {
   displayFrequency: number | null;
   displayNote: NoteInfo | null;
+  lastNote?: NoteInfo | null; // C0 by default
+  lastFrequency?: number | null; // last detected frequency (Hz) for textual fallback
 }
 
 /**
