@@ -1,10 +1,10 @@
+import { useState, useRef } from "react";
 import { useOverallTendencies } from "../hooks/useOverallTendencies";
 import type { TendencyDashboardProps } from "../types/local.ts";
 import {
   IN_TUNE_THRESHOLD,
   TENDENCY_DASHBOARD_DISPLAY_LIMIT,
 } from "../constants";
-import { useRef } from "react";
 
 export function TendencyDashboard({
   instrumentId,
@@ -18,18 +18,53 @@ export function TendencyDashboard({
   );
   const listRef = useRef<HTMLDivElement>(null);
 
-  if (isLoading) {
-    return <p>Loading overall tendencies...</p>;
-  }
+  const [sortOption, setSortOption] = useState("pitch"); // Default sort by pitch
+  const [sortOrder, setSortOrder] = useState("asc"); // Default ascending order
 
-  if (error) {
-    return <p className="error">Error: {error}</p>;
-  }
+  const handleSortChange = (option: string) => {
+    setSortOption(option);
+  };
+
+  const handleSortOrderChange = (order: string) => {
+    setSortOrder(order);
+  };
 
   // 2. Sort the data for better visualization (e.g., largest magnitude first)
-  const sortedTendencies = tendencies.sort(
-    (a, b) => Math.abs(b.meanCents) - Math.abs(a.meanCents),
-  );
+  const sortedTendencies = tendencies.sort((a, b) => {
+    let comparison = 0;
+    if (sortOption === "pitch") {
+      const pitchOrder = [
+        "C",
+        "C#",
+        "D",
+        "D#",
+        "E",
+        "F",
+        "F#",
+        "G",
+        "G#",
+        "A",
+        "A#",
+        "B",
+      ];
+      const aMatch = a.noteString.match(/([A-G]#?)(\d+)/);
+      const bMatch = b.noteString.match(/([A-G]#?)(\d+)/);
+
+      if (aMatch && bMatch) {
+        const [_, aNote, aOctave] = aMatch;
+        const [__, bNote, bOctave] = bMatch;
+        const aIndex = pitchOrder.indexOf(aNote) + parseInt(aOctave) * 12;
+        const bIndex = pitchOrder.indexOf(bNote) + parseInt(bOctave) * 12;
+        comparison = aIndex - bIndex;
+      }
+    } else if (sortOption === "cents") {
+      comparison = a.meanCents - b.meanCents;
+    } else if (sortOption === "samples") {
+      comparison = a.totalSamples - b.totalSamples;
+    }
+
+    return sortOrder === "asc" ? comparison : -comparison;
+  });
 
   // color palette shared with the tuner visuals
   const softGreen = "#34d399"; // in-tune
@@ -54,20 +89,74 @@ export function TendencyDashboard({
       listRef.current.clientHeight + 1
     : true;
 
+  if (isLoading) {
+    return <p>Loading overall tendencies...</p>;
+  }
+
+  if (error) {
+    return <p className="error">Error: {error}</p>;
+  }
+
   return (
     <div className="tendency-dashboard space-y-4">
-      <div className="flex items-baseline justify-around">
-        <div>
-          <h2 className="text-lg font-semibold">
-            Overall Tendencies {instrumentName ? `— ${instrumentName}` : ""}
-          </h2>
-          <div className="text-sm text-gray-400">
-            Data based on {totalSamples} total pitch samples.
-          </div>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">
+          {instrumentName ? `${instrumentName}` : ""}
+        </h2>
+        <div className="flex items-center space-x-2">
+          <label className="text-sm text-gray-400">Sort by:</label>
+          <button
+            onClick={() => {
+              const options = ["pitch", "cents", "samples"];
+              const currentIndex = options.indexOf(sortOption);
+              const nextIndex = (currentIndex + 1) % options.length;
+              handleSortChange(options[nextIndex]);
+            }}
+            className="bg-white/5 text-white text-sm rounded px-2 py-1"
+            aria-label="Cycle sort option"
+            style={{ minWidth: "12ch" }}
+          >
+            {sortOption.charAt(0).toUpperCase() + sortOption.slice(1)}
+          </button>
+          <button
+            onClick={() =>
+              handleSortOrderChange(sortOrder === "asc" ? "desc" : "asc")
+            }
+            className="bg-white/5 text-white rounded px-2 py-1"
+            aria-label="Toggle sort order"
+          >
+            {sortOrder === "asc" ? (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className="w-4 h-4"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M12 4.5a.75.75 0 01.53.22l6 6a.75.75 0 11-1.06 1.06L12 6.31l-5.47 5.47a.75.75 0 11-1.06-1.06l6-6A.75.75 0 0112 4.5z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            ) : (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className="w-4 h-4"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M11.47 19.28a.75.75 0 001.06 0l6-6a.75.75 0 10-1.06-1.06L12 17.69l-5.47-5.47a.75.75 0 10-1.06 1.06l6 6z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            )}
+          </button>
         </div>
       </div>
 
-      {/* Responsive table-like list container */}
+      {/* Responsive table-like list for readability */}
       <div className="bg-white/3 rounded-lg p-3">
         <div className="hidden md:grid grid-cols-12 gap-4 text-xs text-gray-400 pb-2 border-b border-white/6">
           <div className="col-span-3">Note</div>
