@@ -1,10 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useOverallTendencies } from "../hooks/useOverallTendencies";
 import type { TendencyDashboardProps } from "../types/local.ts";
-import {
-  IN_TUNE_THRESHOLD,
-  TENDENCY_DASHBOARD_DISPLAY_LIMIT,
-} from "../constants";
+import { IN_TUNE_THRESHOLD } from "../constants";
 
 export function TendencyDashboard({
   instrumentId,
@@ -16,10 +13,11 @@ export function TendencyDashboard({
     instrumentId,
     refreshTrigger,
   );
-  const listRef = useRef<HTMLDivElement>(null);
 
   const [sortOption, setSortOption] = useState("pitch"); // Default sort by pitch
   const [sortOrder, setSortOrder] = useState("asc"); // Default ascending order
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const handleSortChange = (option: string) => {
     setSortOption(option);
@@ -75,19 +73,26 @@ export function TendencyDashboard({
   // Visual constants for bars
   const MAX_BAR_CENTS = 50; // cents that correspond to 100% bar width
 
-  const totalSamples = sortedTendencies.reduce(
-    (sum, t) => sum + t.totalSamples,
-    0,
-  );
-  // Limit displayed rows to 10 and make the list scrollable when larger
-  const DISPLAY_LIMIT = TENDENCY_DASHBOARD_DISPLAY_LIMIT;
-  const displayedTendencies = sortedTendencies.slice(0, DISPLAY_LIMIT);
+  // Show all tendencies, let height constraint handle scrolling
+  const displayedTendencies = sortedTendencies;
 
-  // scroll position state
-  const isAtBottom = listRef.current
-    ? listRef.current.scrollHeight - listRef.current.scrollTop <=
-      listRef.current.clientHeight + 1
-    : true;
+  // Handle scroll events to update isAtBottom state
+  useEffect(() => {
+    const container = listRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const atBottom = scrollHeight - scrollTop <= clientHeight + 1;
+      setIsAtBottom(atBottom);
+    };
+
+    // Check initial scroll position
+    handleScroll();
+
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [displayedTendencies]); // Re-run when data changes
 
   if (isLoading) {
     return <p>Loading overall tendencies...</p>;
@@ -162,12 +167,12 @@ export function TendencyDashboard({
           <div className="col-span-3">Note</div>
           <div className="col-span-5">Deviation</div>
           <div className="col-span-2 text-right">Samples</div>
-          <div className="col-span-2 text-right">Avg (¢)</div>
+          <div className="col-span-2 text-right">Avg</div>
         </div>
 
         <div
           ref={listRef}
-          className="space-y-2 mt-3 max-h-[48vh] overflow-y-auto pr-2 relative"
+          className="space-y-2 mt-3 h-[50vh] overflow-y-auto pr-2 relative"
         >
           {displayedTendencies.map((t) => {
             const mean = t.meanCents;
@@ -183,25 +188,36 @@ export function TendencyDashboard({
             return (
               <div
                 key={`${t.noteString}-${t.instrumentId}`}
-                className="flex flex-col md:grid md:grid-cols-12 md:items-center gap-2 md:gap-4 py-2 px-2 rounded hover:bg-white/5"
+                className="md:grid md:grid-cols-12 md:items-center md:gap-4 py-2 px-2 rounded hover:bg-white/5"
               >
-                {/* Note */}
-                <div className="col-span-3 flex items-center">
-                  <span className="text-base font-semibold mr-3 text-gray-100">
-                    {t.noteString}
-                  </span>
-                </div>
+                {/* Mobile Layout */}
+                <div className="md:hidden">
+                  {/* Note name and stats row */}
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-base font-semibold text-gray-100">
+                      {t.noteString}
+                    </span>
+                    <div className="flex items-center gap-3 text-sm">
+                      <span className="text-gray-300">{t.totalSamples}</span>
+                      <span
+                        className="font-medium min-w-[3.5rem] text-right"
+                        style={{ color: color }}
+                      >
+                        {mean >= 0 ? "+" : ""}
+                        {mean.toFixed(1)}
+                      </span>
+                    </div>
+                  </div>
 
-                {/* Deviation bar */}
-                <div className="col-span-5">
-                  <div className="relative h-6 bg-white/5 rounded flex items-center">
+                  {/* Compact bar chart for mobile */}
+                  <div className="relative h-4 bg-white/5 rounded flex items-center max-w-xs">
                     {/* center line */}
                     <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/10" />
 
                     {/* negative (flat) bar goes to left */}
                     {mean < 0 && (
                       <div
-                        className="absolute right-1/2 h-3 rounded-l"
+                        className="absolute right-1/2 h-2 rounded-l"
                         style={{
                           width: `${barPct / 2}%`,
                           background: color,
@@ -214,7 +230,7 @@ export function TendencyDashboard({
                     {/* positive (sharp) bar goes to right */}
                     {mean > 0 && (
                       <div
-                        className="absolute left-1/2 h-3 rounded-r"
+                        className="absolute left-1/2 h-2 rounded-r"
                         style={{
                           width: `${barPct / 2}%`,
                           background: color,
@@ -227,7 +243,7 @@ export function TendencyDashboard({
                     {/* in-tune small indicator */}
                     {Math.abs(mean) <= IN_TUNE_THRESHOLD && (
                       <div
-                        className="absolute left-1/2 w-2 h-2 rounded-full"
+                        className="absolute left-1/2 w-1.5 h-1.5 rounded-full"
                         style={{
                           background: color,
                           transform: "translateX(-50%)",
@@ -238,18 +254,74 @@ export function TendencyDashboard({
                   </div>
                 </div>
 
-                {/* Samples */}
-                <div className="col-span-2 text-right text-sm text-gray-300">
-                  {t.totalSamples}
-                </div>
+                {/* Desktop Layout */}
+                <div className="hidden md:contents">
+                  {/* Note */}
+                  <div className="col-span-3 flex items-center">
+                    <span className="text-base font-semibold mr-3 text-gray-100">
+                      {t.noteString}
+                    </span>
+                  </div>
 
-                {/* Numeric mean */}
-                <div
-                  className="col-span-2 text-right text-sm"
-                  style={{ color: color, width: "6ch" }}
-                >
-                  {mean >= 0 ? "+" : ""}
-                  {mean.toFixed(1)}
+                  {/* Deviation bar */}
+                  <div className="col-span-5">
+                    <div className="relative h-6 bg-white/5 rounded flex items-center">
+                      {/* center line */}
+                      <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/10" />
+
+                      {/* negative (flat) bar goes to left */}
+                      {mean < 0 && (
+                        <div
+                          className="absolute right-1/2 h-3 rounded-l"
+                          style={{
+                            width: `${barPct / 2}%`,
+                            background: color,
+                            transformOrigin: "right",
+                          }}
+                          aria-hidden={true}
+                        />
+                      )}
+
+                      {/* positive (sharp) bar goes to right */}
+                      {mean > 0 && (
+                        <div
+                          className="absolute left-1/2 h-3 rounded-r"
+                          style={{
+                            width: `${barPct / 2}%`,
+                            background: color,
+                            transformOrigin: "left",
+                          }}
+                          aria-hidden={true}
+                        />
+                      )}
+
+                      {/* in-tune small indicator */}
+                      {Math.abs(mean) <= IN_TUNE_THRESHOLD && (
+                        <div
+                          className="absolute left-1/2 w-2 h-2 rounded-full"
+                          style={{
+                            background: color,
+                            transform: "translateX(-50%)",
+                          }}
+                          aria-hidden={true}
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Samples */}
+                  <div className="col-span-2 text-right text-sm text-gray-300">
+                    {t.totalSamples}
+                  </div>
+
+                  {/* Numeric mean */}
+                  <div
+                    className="col-span-2 text-right text-sm"
+                    style={{ color: color, width: "6ch" }}
+                  >
+                    {mean >= 0 ? "+" : ""}
+                    {mean.toFixed(1)}
+                  </div>
                 </div>
               </div>
             );
@@ -257,39 +329,33 @@ export function TendencyDashboard({
         </div>
       </div>
 
-      {totalSamples > DISPLAY_LIMIT && (
-        <button
-          // 1. Add 'disabled' attribute based on state
-          disabled={isAtBottom}
-          onClick={() => {
-            const el = listRef.current;
-            if (el) {
-              el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-            }
-          }}
-          aria-label="Scroll to bottom"
-          // 2. Adjust Tailwind classes based on state
-          className={`block mx-auto mt-2 z-20
-               ${
-                 isAtBottom
-                   ? "opacity-40 cursor-not-allowed" // Greyed out/disabled style
-                   : "text-red-500"
-               }
-             `}
+      {/* Scroll to bottom caret button */}
+      <button
+        disabled={isAtBottom}
+        onClick={() => {
+          const el = listRef.current;
+          if (el) {
+            el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+          }
+        }}
+        aria-label="Scroll to bottom"
+        className={`block mx-auto mt-2 z-20 ${
+          isAtBottom
+            ? "opacity-40 cursor-not-allowed"
+            : "text-red-500 hover:text-red-400"
+        }`}
+      >
+        <svg
+          width="28"
+          height="14"
+          viewBox="0 0 28 14"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden={true}
         >
-          <svg
-            width="28"
-            height="14"
-            viewBox="0 0 28 14"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden={true}
-          >
-            {/* Use currentColor so the path inherits the color/opacity set by the button class */}
-            <path d="M2 0 H26 L14 14 Z" fill="currentColor" />
-          </svg>
-        </button>
-      )}
+          <path d="M2 0 H26 L14 14 Z" fill="currentColor" />
+        </svg>
+      </button>
     </div>
   );
 }

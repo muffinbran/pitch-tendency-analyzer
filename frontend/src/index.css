@@ -99,3 +99,83 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+/* Mobile layout styles */
+@media (max-width: 768px) {
+  #root {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .mobile-container {
+    display: flex;
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+
+  .mobile-container::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
+
+  .mobile-panel {
+    flex: 0 0 100%;
+    scroll-snap-align: start;
+    height: 100%;
+    overflow-y: auto;
+  }
+
+  .mobile-nav {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    height: 60px;
+    background-color: #1a1a1a;
+    border-top: 1px solid #646cff;
+    flex-shrink: 0;
+  }
+
+  .mobile-nav button {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.87);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 0.25s;
+    border-radius: 0;
+  }
+
+  .mobile-nav button:hover {
+    border-color: transparent;
+  }
+
+  .mobile-nav button.active {
+    font-weight: bold;
+    color: #646cff;
+  }
+}
+
+/* Light mode mobile nav */
+@media (max-width: 768px) and (prefers-color-scheme: light) {
+  .mobile-nav {
+    background-color: #f9f9f9;
+    border-top: 1px solid #747bff;
+  }
+
+  .mobile-nav button {
+    color: #213547;
+  }
+
+  .mobile-nav button.active {
+    color: #747bff;
+  }
+}
