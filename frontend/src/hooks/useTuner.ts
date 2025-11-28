@@ -122,7 +122,7 @@ export function useTuner() {
 
       for (let i = 0; i < SIZE; i++) rms += buffer[i] * buffer[i];
       rms = Math.sqrt(rms / SIZE);
-      if (rms < 0.005) return null;
+      if (rms < 0.03) return null;
 
       const correlations = new Float32Array(maxShift).fill(0);
       for (let offset = 0; offset < maxShift; offset++) {
@@ -151,7 +151,7 @@ export function useTuner() {
 
       if (
         peakIndex === maxShift - 1 ||
-        correlations[peakIndex] < correlations[0] * 0.25
+        correlations[peakIndex] < correlations[0] * 0.4
       ) {
         // Reject a weak peak
         return null;
@@ -183,10 +183,15 @@ export function useTuner() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioCtx = new AudioContext();
       const source = audioCtx.createMediaStreamSource(stream);
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.value = 400; // center frequency
+      filter.Q.value = 0.7; // width
 
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = 4096;
       source.connect(analyser);
+      filter.connect(analyser);
 
       const buffer = new Float32Array(analyser.fftSize);
 
