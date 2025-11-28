@@ -25,6 +25,9 @@ export interface PracticeSessionProps {
   isActive: boolean;
   onStart: () => void;
   onStop: () => void;
+  // Current instrument selection (id) and a callback to change it from the UI
+  instrumentId?: number;
+  onInstrumentChange?: (id: number) => void;
 }
 
 /**
@@ -33,4 +36,5 @@ export interface PracticeSessionProps {
 export interface TendencyDashboardProps {
   instrumentId: number;
   refreshTrigger: number;
+  instrumentName?: string;
 }

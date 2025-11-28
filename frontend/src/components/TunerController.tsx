@@ -1,5 +1,5 @@
 import { useTuner } from "../hooks/useTuner.ts";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tuner } from "./Tuner.tsx";
 import { PracticeSession } from "./PracticeSession.tsx";
 import { TendencyDashboard } from "./TendencyDashboard.tsx";
@@ -17,6 +17,31 @@ export function TunerController() {
   } = useTuner();
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [dataExportedCount, setDataExportedCount] = useState(0);
+  // Track current instrument id selected in the left panel
+  const [instrumentId, setInstrumentId] = useState<number>(() => {
+    const storedInstrumentId = localStorage.getItem("currentInstrumentId");
+    return storedInstrumentId ? parseInt(storedInstrumentId, 10) : 1;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("currentInstrumentId", instrumentId.toString());
+  }, [instrumentId]);
+
+  // derive instrument name from localStorage (keep it reactive by reading on each render)
+  const getInstrumentName = (id: number) => {
+    try {
+      const raw = localStorage.getItem("pta_instruments_v1");
+      if (!raw) return `Instrument ${id}`;
+      const parsed = JSON.parse(raw);
+      const found = Array.isArray(parsed)
+        ? parsed.find((p: any) => p.id === id)
+        : null;
+      return found ? found.name : `Instrument ${id}`;
+    } catch {
+      return `Instrument ${id}`;
+    }
+  };
+  const instrumentName = getInstrumentName(instrumentId);
 
   const handleStartSession = () => {
     resetAggregates();
@@ -36,8 +61,8 @@ export function TunerController() {
 
     const sessionPayload: SessionData = {
       sessionId: Date.now(),
-      instrument: "Clarinet",
-      instrumentId: 1,
+      instrument: `Instrument ${instrumentId}`,
+      instrumentId,
       noteStrings: finalAggregates,
     };
 
@@ -53,13 +78,15 @@ export function TunerController() {
 
   return (
     // Ensure controller fills the viewport height and children stretch equally
-    <div className="flex gap-6 w-full px-6 h-screen items-stretch">
+    <div className="flex gap-6 w-full px-[6%] h-screen items-stretch">
       {/* Left: Practice controls and session summary */}
-      <aside className="w-80 space-y-4 h-full overflow-auto flex flex-col justify-center">
+      <aside className="w-96 space-y-4 h-full overflow-auto flex flex-col justify-center">
         <PracticeSession
           isActive={isSessionActive}
           onStart={handleStartSession}
           onStop={handleStopSession}
+          instrumentId={instrumentId}
+          onInstrumentChange={setInstrumentId}
         />
 
         <div className="rounded-lg p-4 bg-white/5">
@@ -74,20 +101,24 @@ export function TunerController() {
       {/* Center: make tuner expansive and allow it to take most of the width */}
       <div className="flex-1 flex items-center justify-center h-full">
         <div className="w-full h-full flex items-center justify-center">
-          <Tuner
-            displayFrequency={frequency}
-            displayNote={note}
-            lastNote={lastNote}
-            lastFrequency={lastFrequency}
-          />
+          {/* constrain visual size of the tuner so side panels occupy more space */}
+          <div className="w-full max-w-md">
+            <Tuner
+              displayFrequency={frequency}
+              displayNote={note}
+              lastNote={lastNote}
+              lastFrequency={lastFrequency}
+            />
+          </div>
         </div>
       </div>
 
       {/* Right panel: dashboard only */}
-      <aside className="w-80 space-y-4 h-full overflow-auto flex flex-col justify-center">
+      <aside className="w-96 space-y-4 h-full overflow-auto flex flex-col justify-center">
         <TendencyDashboard
-          instrumentId={1}
+          instrumentId={instrumentId}
           refreshTrigger={dataExportedCount}
+          instrumentName={instrumentName}
         />
       </aside>
     </div>
