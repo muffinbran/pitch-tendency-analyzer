@@ -1,6 +1,6 @@
 import type { NoteSummary, SessionData } from "../types/api";
 
-const FASTAPI_URL = "http://localhost:8000";
+const FASTAPI_URL = import.meta.env.VITE_API_URL;
 
 /**
  * Attempts to send session data to the FastAPI backend.

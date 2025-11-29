@@ -9,7 +9,10 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Vite default dev server
+    allow_origins=[
+        "http://localhost:5173",
+        "https://pitch-tendency-analyzer.vercel.app",
+    ],  # Vite default dev server
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
