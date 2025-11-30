@@ -69,21 +69,49 @@ export function TunerController() {
     localStorage.setItem("currentInstrumentId", instrumentId.toString());
   }, [instrumentId]);
 
-  // derive instrument name from localStorage (keep it reactive by reading on each render)
-  const getInstrumentName = (id: number) => {
-    try {
-      const raw = localStorage.getItem("pta_instruments_v1");
-      if (!raw) return `Instrument ${id}`;
-      const parsed = JSON.parse(raw);
-      const found = Array.isArray(parsed)
-        ? parsed.find((p: any) => p.id === id)
-        : null;
-      return found ? found.name : `Instrument ${id}`;
-    } catch {
-      return `Instrument ${id}`;
-    }
-  };
-  const instrumentName = getInstrumentName(instrumentId);
+  // Track instruments from localStorage to ensure reactivity
+  const [instrumentName, setInstrumentName] = useState<string>(() => {
+    const getInstrumentName = (id: number) => {
+      try {
+        const raw = localStorage.getItem("pta_instruments_v1");
+        if (!raw) return `Instrument ${id}`;
+        const parsed = JSON.parse(raw);
+        const found = Array.isArray(parsed)
+          ? parsed.find((p: any) => p.id === id)
+          : null;
+        return found ? found.name : `Instrument ${id}`;
+      } catch {
+        return `Instrument ${id}`;
+      }
+    };
+    return getInstrumentName(instrumentId);
+  });
+
+  // Update instrument name when instrumentId changes
+  useEffect(() => {
+    const updateInstrumentName = () => {
+      try {
+        const raw = localStorage.getItem("pta_instruments_v1");
+        if (!raw) {
+          setInstrumentName(`Instrument ${instrumentId}`);
+          return;
+        }
+        const parsed = JSON.parse(raw);
+        const found = Array.isArray(parsed)
+          ? parsed.find((p: any) => p.id === instrumentId)
+          : null;
+        setInstrumentName(found ? found.name : `Instrument ${instrumentId}`);
+      } catch {
+        setInstrumentName(`Instrument ${instrumentId}`);
+      }
+    };
+
+    updateInstrumentName();
+
+    // Also check after a small delay in case localStorage is being updated
+    const timeoutId = setTimeout(updateInstrumentName, 100);
+    return () => clearTimeout(timeoutId);
+  }, [instrumentId]);
 
   const handleStartSession = () => {
     resetAggregates();
@@ -108,10 +136,13 @@ export function TunerController() {
       noteStrings: finalAggregates,
     };
 
-    setDataExportedCount((prevCount) => prevCount + 1);
-
-    console.log("Attempting to export data:", sessionPayload);
-    await exportSessionData(sessionPayload);
+    try {
+      console.log("Attempting to export data:", sessionPayload);
+      await exportSessionData(sessionPayload);
+      setDataExportedCount((prevCount) => prevCount + 1);
+    } catch (error) {
+      console.error("Failed to export session data:", error);
+    }
   };
 
   // Mobile navigation function
