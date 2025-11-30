@@ -105,13 +105,15 @@ button:focus-visible {
   #root {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    height: 100dvh; /* Use dynamic viewport height */
+    max-height: 100dvh;
     overflow: hidden;
   }
 
   .mobile-container {
     display: flex;
     flex: 1;
+    min-height: 0; /* Allow flex item to shrink below content size */
     overflow-x: auto;
     overflow-y: hidden;
     scroll-snap-type: x mandatory;
@@ -129,6 +131,7 @@ button:focus-visible {
     scroll-snap-align: start;
     height: 100%;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .mobile-nav {

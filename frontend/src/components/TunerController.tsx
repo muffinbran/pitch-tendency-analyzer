@@ -17,14 +17,53 @@ export function TunerController() {
   } = useTuner();
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [dataExportedCount, setDataExportedCount] = useState(0);
-  const [activePanel, setActivePanel] = useState(1); // 0=Session, 1=Tuner, 2=Dashboard
+  const [activePanel, setActivePanel] = useState(0); // 0=Session, 1=Tuner, 2=Dashboard
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Track current instrument id selected in the left panel
   const [instrumentId, setInstrumentId] = useState<number>(() => {
     const storedInstrumentId = localStorage.getItem("currentInstrumentId");
-    return storedInstrumentId ? parseInt(storedInstrumentId, 10) : 1;
+    return storedInstrumentId ? parseInt(storedInstrumentId, 10) : Date.now();
   });
+
+  // Effect to set fallback instrumentId after component mounts and instruments are available
+  useEffect(() => {
+    const storedInstrumentId = localStorage.getItem("currentInstrumentId");
+    if (storedInstrumentId) {
+      // Already have a stored ID, no need to change
+      return;
+    }
+
+    // Wait for pta_instruments_v1 to be available and use first instrument's ID
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    const checkForInstruments = () => {
+      const instrumentsRaw = localStorage.getItem("pta_instruments_v1");
+      if (instrumentsRaw) {
+        try {
+          const instruments = JSON.parse(instrumentsRaw);
+          if (
+            Array.isArray(instruments) &&
+            instruments.length > 0 &&
+            instruments[0].id
+          ) {
+            setInstrumentId(instruments[0].id);
+            return;
+          }
+        } catch (err) {
+          console.error("Failed to parse pta_instruments_v1:", err);
+        }
+      }
+
+      attempts++;
+      if (attempts < maxAttempts) {
+        setTimeout(checkForInstruments, 100); // Check again after 100ms
+      }
+    };
+
+    checkForInstruments();
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("currentInstrumentId", instrumentId.toString());
@@ -64,8 +103,8 @@ export function TunerController() {
 
     const sessionPayload: SessionData = {
       sessionId: Date.now(),
-      instrument: `Instrument ${instrumentId}`,
-      instrumentId,
+      instrument: instrumentName,
+      instrumentId: instrumentId,
       noteStrings: finalAggregates,
     };
 
@@ -156,7 +195,7 @@ export function TunerController() {
       </div>
 
       {/* Mobile Layout with swipeable panels and bottom navigation */}
-      <div className="md:hidden flex flex-col h-screen">
+      <div className="md:hidden flex flex-col h-[100dvh] max-h-[100dvh] overflow-hidden">
         <div ref={containerRef} className="mobile-container">
           {/* Panel 0: Practice Session */}
           <div className="mobile-panel p-4 flex items-center justify-center">

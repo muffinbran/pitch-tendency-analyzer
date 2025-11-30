@@ -33,14 +33,14 @@ function saveInstruments(list: { id: number; name: string }[]) {
 
 function defaultInstruments() {
   // Per request: default should be just the Violin
-  return [{ id: 1, name: "Violin" }];
+  return [{ id: Date.now(), name: "Violin" }];
 }
 
 export function PracticeSession({
   isActive,
   onStart,
   onStop,
-  instrumentId = 1,
+  instrumentId,
   onInstrumentChange,
 }: PracticeSessionProps) {
   const [instruments, setInstruments] = useState<
@@ -51,14 +51,6 @@ export function PracticeSession({
   const [addName, setAddName] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState("");
-
-  useEffect(() => {
-    // ensure selected instrument exists; if not, pick first
-    if (!instruments.find((i) => i.id === instrumentId)) {
-      const first = instruments[0];
-      if (first) onInstrumentChange?.(first.id);
-    }
-  }, [instruments, instrumentId, onInstrumentChange]);
 
   useEffect(() => {
     saveInstruments(instruments);

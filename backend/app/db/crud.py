@@ -16,8 +16,8 @@ def create_session_and_notes(db: Session, session_data: SessionData):
     """
     db_session = DBSession(
         session_id=session_data.session_id,
-        instrument=session_data.instrument,
         instrument_id=session_data.instrument_id,
+        instrument=session_data.instrument,
     )
     db.add(db_session)
     db.flush()
