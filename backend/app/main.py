@@ -12,7 +12,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "https://pitch-tendency-analyzer.vercel.app",
-    ],  # Vite default dev server
+    ],
+    allow_origin_regex=r"^https://pitch-tendency-analyzer(?:-[a-z0-9-]+)?\.vercel\.app/?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
